@@ -1,42 +1,26 @@
 const puppeteer = require("puppeteer");
 const fs = require("fs");
 const config = require("./config");
+
 let currentPage = 0;
 let page;
-let initPage =
-  "http://wipopublish.ipvietnam.gov.vn/wopublish-search/public/trademarks?1&query=OFCO:VN#";
-let filter_sodongoc = "Số đơn gốc";
-let filter_ngaynopdon = "Ngày nộp đơn";
-let response1filter =
-  "IBehaviorListener.0-body-basicSearchTab-searchInputPanel-searchForm-searchSubmitLink&query=OFCO:VN";
-let response2filter =
-  "IBehaviorListener.0-body-controlOptionsPanel-formatController-linesLink-iLink&query=OFCO:VN";
-let response3filter =
-  "IBehaviorListener.0-body-basicSearchTab-searchInputPanel-searchForm-searchSubmitLink&query=OFCO:VN";
-let responseNavigatorFilter =
-  ".IBehaviorListener.0-body-searchResultPanel-resultWrapper-dataTable-bottomToolbars-toolbars-2-span-navigator-next&query=OFCO:VN";
-let outputfilePath = "output.txt";
 
 puppeteer
   .launch({
     headless: false,
-    defaultViewport: {
-      width: 1920,
-      height: 1080,
-    },
+    defaultViewport: null,
   })
   .then(async (browser) => {
     page = await browser.newPage();
-    await page.goto(initPage, {
+    await page.goto(config.url.initPage, {
       timeout: 120000,
     });
     await page.content();
 
-    //await regularPreparation();
-    await customPreparation();
-    SortAndOrder();
+    await delay(3000);
+    await waitForUserConfirmation();
     await delay(config.delay.beforeScrape);
-    console.log("All good");
+    console.log("User confirmed. Start scraping ...");
     while (currentPage < config.TOTAL_PAGE) {
       await delay(config.delay.betweenPage);
       await scrape(page);
@@ -46,9 +30,10 @@ puppeteer
       await page.evaluate((path) => {
         document.querySelector(path).click();
       }, config.querySelector.navButtonPath);
+
       try {
         console.log("waiting for response ...");
-        let response = await page.waitForResponse(
+        await page.waitForResponse(
           (res) =>
             res.request().url().includes(responseNavigatorFilter) &&
             res.request().method() == "GET" &&
@@ -59,65 +44,13 @@ puppeteer
         );
         currentPage++;
       } catch (error) {
-        console.log("break !!!");
+        console.log("break : " + error);
         break;
       }
     }
 
     console.log("Done");
   });
-
-async function regularPreparation() {
-  console.log("clicking #sortField ...");
-  await delay(1000);
-  await page.waitForSelector("#sortField");
-  let sortField = await page.$("#sortField");
-  await sortField.select(filter_sodongoc);
-
-  await waitForResponse(response1filter, "POST");
-}
-
-async function customPreparation() {
-  let dateTypeFilter = config.filter.date.find(
-    (item) => item.type === "Ngày nộp đơn"
-  ); // config.date.type = 'Ngày nộp đơn' // click
-  await page.evaluate((id) => {
-    document.querySelector(`#${id}`).click();
-  }, dateTypeFilter.id);
-
-  await waitForResponse(
-    "IBehaviorListener.0-body-advancedSearchTab-preferencesPanel-categories-3-criterias-criteriasWrapper-1-filter&query=OFCO:VN",
-    "GET"
-  );
-
-  let input = await page.$(dateTypeFilter.searchTerm);
-  await input.type(dateTypeFilter.value, { delay: 200 });
-  await page.evaluate(() => {
-    document.querySelector('#advanceSearchButton').click()
-  });
-
-  await waitForResponse(
-    "IBehaviorListener.0-body-advancedSearchTab-advancedSearchInputPanel-advancedSearchForm-advancedSearchSubmitLink&query=OFCO:VN",
-    "POST"
-  );
-
-  await delay(1000);
-  await page.waitForSelector("#sortField");
-  let sortField = await page.$("#sortField");
-  await sortField.select(filter_ngaynopdon);
-  await waitForResponse(
-    "IBehaviorListener.0-body-basicSearchTab-searchInputPanel-searchForm-searchSubmitLink&query=OFCO:VN",
-    "POST"
-  );
-
-  console.log("Clicking .asc-icon ...");
-  await delay(1000);
-  await page.waitForSelector(".asc-icon");
-  await page.evaluate(() => {
-    document.querySelector(".asc-icon").click();
-  });
-  await waitForResponse(response3filter, "POST");
-}
 
 async function waitForResponse(url, method) {
   try {
@@ -132,20 +65,35 @@ async function waitForResponse(url, method) {
   }
 }
 
-async function SortAndOrder() {
-  console.log("Clicking #linesLink-iLink ...");
-  await delay(1000);
-  await page.waitForSelector("#linesLink-iLink");
-  await page.evaluate(() => document.querySelector("#linesLink-iLink").click());
-  await waitForResponse(response2filter, "GET");
-
-  console.log("Clicking .asc-icon ...");
-  await delay(1000);
-  await page.waitForSelector(".asc-icon");
+async function waitForUserConfirmation() {
   await page.evaluate(() => {
-    document.querySelector(".asc-icon").click();
+    const navbar = document.querySelector("#navbar");
+    if (navbar) {
+      const button = document.createElement("button");
+      button.id = "myButton";
+      button.style.padding = "10px 20px";
+      button.style.fontSize = "16px";
+      button.style.margin = "auto";
+      button.innerText = "Click Me";
+      navbar.appendChild(button);
+    }
   });
-  await waitForResponse(response3filter, "POST");
+  await page.exposeFunction("onButtonClick", () => {
+    console.log("Button clicked!");
+    return true;
+  });
+
+  await page.evaluate(() => {
+    window.buttonClicked = false;
+    document.getElementById("myButton").addEventListener("click", async () => {
+      window.buttonClicked = await window.onButtonClick();
+    });
+  });
+
+  console.log("Waiting for button click...");
+  await page.waitForFunction(() => window.buttonClicked === true, {
+    timeout: 0,
+  });
 }
 
 async function scrape(page) {
@@ -185,7 +133,7 @@ async function scrape(page) {
     return csvContent;
   });
 
-  fs.appendFileSync(outputfilePath, csv);
+  fs.appendFileSync(config.filePath.output, csv);
 }
 
 async function delay(ms) {
