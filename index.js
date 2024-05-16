@@ -39,7 +39,7 @@ puppeteer
             res.request().method() == "GET" &&
             res.status() == 200,
           {
-            timeout: 10000,
+            timeout: config.delay.timeoutBetweenPage,
           }
         );
         currentPage++;

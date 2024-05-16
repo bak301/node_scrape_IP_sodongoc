@@ -10,6 +10,7 @@ const config = {
     betweenPage : 500,
     waitForNav : 1000,
     beforeScrape: 500,
+    timeoutBetweenPage : 30000,
   },
   querySelector: {
     navButtonPath : 'a[title="Go to next page"]'
