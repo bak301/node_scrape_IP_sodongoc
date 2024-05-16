@@ -1,11 +1,10 @@
 const puppeteer = require("puppeteer");
 const fs = require("fs");
-const TOTAL_PAGE = 5; //15747;
+const config = require('./config')
 let currentPage = 0;
 
 let initPage =
   "http://wipopublish.ipvietnam.gov.vn/wopublish-search/public/trademarks?1&query=OFCO:VN#";
-let page = 0;
 let filterString = "Số đơn gốc";
 let response1filter =
   "IBehaviorListener.0-body-basicSearchTab-searchInputPanel-searchForm-searchSubmitLink&query=OFCO:VN";
@@ -15,7 +14,7 @@ let response3filter =
   "IBehaviorListener.0-body-basicSearchTab-searchInputPanel-searchForm-searchSubmitLink&query=OFCO:VN";
 let responseNavigatorFilter =
   ".IBehaviorListener.0-body-searchResultPanel-resultWrapper-dataTable-bottomToolbars-toolbars-2-span-navigator-next&query=OFCO:VN";
-let outputfilePath = "output.html";
+let outputfilePath = "output.txt";
 let navButtonPath = 'a[title="Go to next page"]';
 
 puppeteer
@@ -29,7 +28,7 @@ puppeteer
   .then(async (browser) => {
     const page = await browser.newPage();
     await page.goto(initPage, {
-        timeout: 120000
+      timeout: 120000,
     });
     await page.content();
 
@@ -39,8 +38,8 @@ puppeteer
     if (allGood) {
       await delay(5000);
       console.log("ALl good");
-      while (currentPage < TOTAL_PAGE) {
-        await delay(5000)
+      while (currentPage < config.TOTAL_PAGE) {
+        await delay(1000);
         await scrape(page);
 
         await page.waitForSelector(navButtonPath);
@@ -71,7 +70,7 @@ puppeteer
 
 async function babyStep(page) {
   console.log("clicking #sortField ...");
-  await delay(1000)
+  await delay(1000);
   await page.waitForSelector("#sortField");
   let sortField = await page.$("#sortField");
   await sortField.select(filterString);
@@ -85,7 +84,7 @@ async function babyStep(page) {
   let response2;
   if (response1 !== undefined) {
     console.log("Clicking #linesLink-iLink ...");
-    await delay(1000)
+    await delay(1000);
     await page.waitForSelector("#linesLink-iLink");
     await page.evaluate(() =>
       document.querySelector("#linesLink-iLink").click()
@@ -101,7 +100,7 @@ async function babyStep(page) {
   let response3;
   if (response2 !== undefined) {
     console.log("Clicking .asc-icon ...");
-    await delay(1000)
+    await delay(1000);
     await page.waitForSelector(".asc-icon");
     await page.evaluate(() => {
       document.querySelector(".asc-icon").click();
@@ -120,41 +119,39 @@ async function babyStep(page) {
 async function scrape(page) {
   console.log("Start scraping page number " + currentPage);
   let csv = await page.evaluate(() => {
-    //return document.getElementById("dataTable").innerHTML;
     const classesToExtract = [
-        '.rs-MK',
-        '.rs-AFNB_ORI',
-        '.rs-AFDT',
-        '.rs-GZNB',
-        '.rs-PBDT',
-        '.rs-RENB',
-        '.rs-REDT',
-        '.rs-NCL',
-        '.rs-VCL',
-        '.rs-APNA',
-        '.rs-STLB'
+      ".rs-MK",
+      ".rs-AFNB_ORI",
+      ".rs-AFDT",
+      ".rs-GZNB",
+      ".rs-PBDT",
+      ".rs-RENB",
+      ".rs-REDT",
+      ".rs-NCL",
+      ".rs-VCL",
+      ".rs-APNA",
+      ".rs-STLB",
     ];
-    
-    const extractedData = {};
 
-    classesToExtract.forEach((selector) => {
-        const elements = document.querySelectorAll(selector);
-        const values = Array.from(elements).map((element) => element.innerText.trim());
-        extractedData[selector] = values;
-    });
-    
-    const headerRow = classesToExtract.join(',');
-    
-    const csvContent = `${headerRow}\n${classesToExtract.map((selector) => extractedData[selector].join(',')).join('\n')}`;
-    
-    // Print the CSV content
-    return csvContent
+    const extractedData = classesToExtract.map(selector =>
+      Array.from(document.querySelectorAll(selector)).map(element => element.innerText.trim())
+    );
+
+    // Get the maximum number of rows
+    const maxRows = Math.max(...extractedData.map(arr => arr.length));
+
+    // Create CSV content
+    const csvRows = Array.from({ length: maxRows }, (_, i) =>
+      extractedData.map(column => column[i] || "").join("\t")
+    );
+
+    const csvContent = [...csvRows].join("\n") + "\n";
+
+    // Return the CSV content
+    return csvContent;
   });
 
-  fs.appendFileSync(
-    outputfilePath,
-    csv
-  );
+  fs.appendFileSync(outputfilePath, csv);
 }
 
 async function delay(ms) {
