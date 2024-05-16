@@ -35,7 +35,7 @@ puppeteer
         console.log("waiting for response ...");
         await page.waitForResponse(
           (res) =>
-            res.request().url().includes(responseNavigatorFilter) &&
+            res.request().url().includes(config.url.responseNavigatorFilter) &&
             res.request().method() == "GET" &&
             res.status() == 200,
           {

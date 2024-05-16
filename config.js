@@ -4,7 +4,8 @@ const config = {
     output : "output.txt"
   },
   url : {
-    initPage : 'http://wipopublish.ipvietnam.gov.vn/wopublish-search/public/trademarks?1&query=OFCO:VN'
+    initPage : 'http://wipopublish.ipvietnam.gov.vn/wopublish-search/public/trademarks?1&query=OFCO:VN',
+    responseNavigatorFilter : 'IBehaviorListener.0-body-searchResultPanel-resultWrapper-dataTable-bottomToolbars-toolbars-2-span-navigator-next&query=OFCO:VN',
   },
   delay : {
     betweenPage : 500,
