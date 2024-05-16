@@ -1,0 +1,14 @@
+{
+  "name": "node_scrape_ip_sodongoc",
+  "version": "1.0.0",
+  "description": "Scrape data số đơn gốc cho hiệp",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "kab",
+  "license": "ISC",
+  "dependencies": {
+    "puppeteer": "^22.9.0"
+  }
+}
